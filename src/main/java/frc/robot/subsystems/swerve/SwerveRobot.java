@@ -8,6 +8,9 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.StructArrayPublisher;
+import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.ADIS16470_IMU;
 import edu.wpi.first.wpilibj.simulation.ADIS16470_IMUSim;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
@@ -106,15 +109,18 @@ public class SwerveRobot extends SubsystemBase {
     public ChassisSpeeds getChassisSpeeds() {
         return DriveConstants.kDriveKinematics.toChassisSpeeds(getModuleStates());
     }
-    private double[] flattenStates() {        // for NT
-        SwerveModuleState[] s = getModuleStates();
-        return new double[] {
-            s[0].speedMetersPerSecond, s[0].angle.getRadians(),
-            s[1].speedMetersPerSecond, s[1].angle.getRadians(),
-            s[2].speedMetersPerSecond, s[2].angle.getRadians(),
-            s[3].speedMetersPerSecond, s[3].angle.getRadians()
-        };
-    }
+    private final StructPublisher<ChassisSpeeds> speedPub =
+    NetworkTableInstance.getDefault()
+        .getStructTopic(        // choose any NT path you like
+            "SmartDashboard/Swerve/ChassisSpeeds",
+            ChassisSpeeds.struct)   // tell NT what struct type this is
+        .publish();
+    private final StructArrayPublisher<SwerveModuleState> statesPub =
+    NetworkTableInstance.getDefault()
+        .getStructArrayTopic(        // choose any NT path you like
+            "SmartDashboard/Swerve/States",
+            SwerveModuleState.struct)   // tell NT what struct type this is
+        .publish();
     /* ---------- every 20 ms on real robot & sim ---------- */
     @Override
     public void periodic() {
@@ -123,11 +129,11 @@ public class SwerveRobot extends SubsystemBase {
 
         // publish to SmartDashboard / NetworkTables
         ChassisSpeeds cs = getChassisSpeeds();
-        SmartDashboard.putNumberArray("SwerveModuleStates", flattenStates());   // FL, FR, BL, BR
+        System.out.println(cs);
+        speedPub.set(cs);
+        statesPub.set(getModuleStates()); 
         SmartDashboard.putNumber("HeadingDeg", getHeading());
-        SmartDashboard.putNumber("Chassis vx (m/s)",  cs.vxMetersPerSecond);
-        SmartDashboard.putNumber("Chassis vy (m/s)",  cs.vyMetersPerSecond);
-        SmartDashboard.putNumber("Chassis ω  (rad/s)",cs.omegaRadiansPerSecond);
+
         SmartDashboard.putData("Field", field);      // keeps the widget present
     }
 
